@@ -1,0 +1,89 @@
+/*
+wsimplecal: a simple GTK calendar
+Copyright (C) 2025 Fuzzy Dunlop
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+#include <gtk/gtk.h>
+#include <gtk4-layer-shell/gtk4-layer-shell.h>
+#include <glib-2.0/glib-unix.h>
+
+static gboolean no_layer_shell = FALSE;
+static gboolean start_hidden = FALSE;
+static GtkLayerShellLayer default_layer = GTK_LAYER_SHELL_LAYER_TOP;
+static gboolean default_anchors[] = {FALSE, TRUE, FALSE, TRUE};
+
+static gboolean toggle_visible(GtkWidget *widget) {
+	gtk_widget_set_visible(widget, !gtk_widget_get_visible(widget));
+	return G_SOURCE_CONTINUE;
+}
+
+static void activate(GtkApplication *app, gpointer user_data) {
+	GtkWidget *window = gtk_application_window_new(app);
+
+	if (!no_layer_shell) {
+		gtk_layer_init_for_window(GTK_WINDOW(window));
+		gtk_layer_set_layer(GTK_WINDOW(window), default_layer);
+		for (int i = 0; i < GTK_LAYER_SHELL_EDGE_ENTRY_NUMBER; i++)
+			gtk_layer_set_anchor(GTK_WINDOW(window), i, default_anchors[i]);
+		g_unix_signal_add(SIGUSR1, G_SOURCE_FUNC(toggle_visible), window);
+	}
+
+	GtkWidget *calendar = gtk_calendar_new();
+	gtk_window_set_child(GTK_WINDOW(window), calendar);
+	gtk_window_present(GTK_WINDOW(window));
+	if (!no_layer_shell && start_hidden) gtk_widget_set_visible(window, FALSE);
+}
+
+gboolean anchor_option_callback(const gchar *_option_name, const gchar *value, void *_data, GError **error) {
+	for (int i = 0; i < GTK_LAYER_SHELL_EDGE_ENTRY_NUMBER; i++)
+		default_anchors[i] = FALSE;
+
+	for (const char *c = value; *c; c++) {
+		if (*c == 'l') {
+			default_anchors[GTK_LAYER_SHELL_EDGE_LEFT] = TRUE;
+		} else if (*c == 'r') {
+			default_anchors[GTK_LAYER_SHELL_EDGE_RIGHT] = TRUE;
+		} else if (*c == 't') {
+			default_anchors[GTK_LAYER_SHELL_EDGE_TOP] = TRUE;
+		} else if (*c == 'b') {
+			default_anchors[GTK_LAYER_SHELL_EDGE_BOTTOM] = TRUE;
+		}
+	}
+
+	return TRUE;
+}
+
+static const GOptionEntry options[] = {
+	{"anchor", 'a', G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_CALLBACK, (void*)&anchor_option_callback, "A sequence of 'l', 'r', 't' and 'b' to anchor to those edges", NULL},
+	{"no-layer-shell", 'n', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &no_layer_shell, "Disable gtk4-layer-shell, create a normal shell surface instead", NULL},
+	{"start-hidden", 'h', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &start_hidden, "Set window not visible at launch (toggle visibility with SIGUSR1)", NULL},
+	G_OPTION_ENTRY_NULL
+};
+
+int main(int argc, char **argv)
+{
+	GError *error = NULL;
+	GOptionContext *context = g_option_context_new("");
+	g_option_context_add_main_entries(context, options, NULL);
+	g_option_context_parse(context, &argc, &argv, &error);
+	GtkApplication *app = gtk_application_new("org.wsimplecal", G_APPLICATION_NON_UNIQUE);
+	g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
+	int status = g_application_run(G_APPLICATION(app), argc, argv);
+	g_object_unref(app);
+	g_option_context_free(context);
+	
+	return status;
+}
