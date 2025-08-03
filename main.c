@@ -16,9 +16,23 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <time.h>
 #include <gtk/gtk.h>
 #include <gtk4-layer-shell/gtk4-layer-shell.h>
 #include <glib-2.0/glib-unix.h>
+
+const char *WDAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+gboolean update_date(gpointer user_data) {
+	GtkWidget *label = user_data;
+	time_t s = time(NULL);
+	struct tm *t = gmtime(&s);
+	char date[32];
+	sprintf(date, "%s %d %s, %d:%02d:%02d", WDAYS[t->tm_wday], t->tm_mday, MONTHS[t->tm_mon], t->tm_hour, t->tm_min, t->tm_sec);
+	gtk_label_set_text(GTK_LABEL(label), date);
+	return G_SOURCE_CONTINUE;
+}
 
 static gboolean no_layer_shell = FALSE;
 static gboolean start_hidden = FALSE;
@@ -41,8 +55,22 @@ static void activate(GtkApplication *app, gpointer user_data) {
 		g_unix_signal_add(SIGUSR1, G_SOURCE_FUNC(toggle_visible), window);
 	}
 
+	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+	gtk_window_set_child(GTK_WINDOW(window), box);
+
+	GtkWidget *date = gtk_label_new(NULL);
+	PangoAttrList *attrlist = pango_attr_list_new();
+	pango_attr_list_insert(attrlist, pango_attr_font_features_new("tnum=1"));
+	pango_attr_list_insert(attrlist, pango_attr_size_new(15 * PANGO_SCALE));
+	gtk_label_set_attributes(GTK_LABEL(date), attrlist);
+	gtk_widget_set_margin_top(date, 5);
+	gtk_widget_set_margin_bottom(date, 5);
+	gtk_box_append(GTK_BOX(box), date);
+	g_timeout_add(100, update_date, date);
+
 	GtkWidget *calendar = gtk_calendar_new();
-	gtk_window_set_child(GTK_WINDOW(window), calendar);
+	gtk_box_append(GTK_BOX(box), calendar);
+
 	gtk_window_present(GTK_WINDOW(window));
 	if (!no_layer_shell && start_hidden) gtk_widget_set_visible(window, FALSE);
 }
