@@ -55,7 +55,13 @@ static void activate(GtkApplication *app, gpointer user_data) {
 		g_unix_signal_add(SIGUSR1, G_SOURCE_FUNC(toggle_visible), window);
 	}
 
-	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+	gtk_widget_add_css_class(window, "frame");
+	gtk_widget_add_css_class(window, "view");
+	gtk_widget_set_margin_top(box, 5);
+	gtk_widget_set_margin_bottom(box, 5);
+	gtk_widget_set_margin_start(box, 5);
+	gtk_widget_set_margin_end(box, 5);
 	gtk_window_set_child(GTK_WINDOW(window), box);
 
 	GtkWidget *date = gtk_label_new(NULL);
@@ -63,8 +69,6 @@ static void activate(GtkApplication *app, gpointer user_data) {
 	pango_attr_list_insert(attrlist, pango_attr_font_features_new("tnum=1"));
 	pango_attr_list_insert(attrlist, pango_attr_size_new(15 * PANGO_SCALE));
 	gtk_label_set_attributes(GTK_LABEL(date), attrlist);
-	gtk_widget_set_margin_top(date, 5);
-	gtk_widget_set_margin_bottom(date, 5);
 	gtk_box_append(GTK_BOX(box), date);
 	g_timeout_add(100, update_date, date);
 
