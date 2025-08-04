@@ -27,7 +27,7 @@ const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", 
 gboolean update_date(gpointer user_data) {
 	GtkWidget *label = user_data;
 	time_t s = time(NULL);
-	struct tm *t = gmtime(&s);
+	struct tm *t = localtime(&s);
 	char date[32];
 	sprintf(date, "%s %d %s, %d:%02d:%02d", WDAYS[t->tm_wday], t->tm_mday, MONTHS[t->tm_mon], t->tm_hour, t->tm_min, t->tm_sec);
 	gtk_label_set_text(GTK_LABEL(label), date);
