@@ -24,7 +24,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 const char *WDAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
-gboolean update_date(gpointer user_data) {
+static gboolean no_layer_shell = FALSE;
+static gboolean start_hidden = FALSE;
+static GtkLayerShellLayer default_layer = GTK_LAYER_SHELL_LAYER_TOP;
+static gboolean default_anchors[] = {FALSE, TRUE, FALSE, TRUE};
+
+static gboolean update_date(gpointer user_data) {
 	GtkWidget *label = user_data;
 	time_t s = time(NULL);
 	struct tm *t = localtime(&s);
@@ -34,10 +39,11 @@ gboolean update_date(gpointer user_data) {
 	return G_SOURCE_CONTINUE;
 }
 
-static gboolean no_layer_shell = FALSE;
-static gboolean start_hidden = FALSE;
-static GtkLayerShellLayer default_layer = GTK_LAYER_SHELL_LAYER_TOP;
-static gboolean default_anchors[] = {FALSE, TRUE, FALSE, TRUE};
+static gboolean show_today(GtkWidget *widget) {
+	GDateTime *now = g_date_time_new_now_local();
+	gtk_calendar_select_day(GTK_CALENDAR(widget), now);
+	return G_SOURCE_CONTINUE;
+}
 
 static gboolean toggle_visible(GtkWidget *widget) {
 	gtk_widget_set_visible(widget, !gtk_widget_get_visible(widget));
@@ -52,7 +58,6 @@ static void activate(GtkApplication *app, gpointer user_data) {
 		gtk_layer_set_layer(GTK_WINDOW(window), default_layer);
 		for (int i = 0; i < GTK_LAYER_SHELL_EDGE_ENTRY_NUMBER; i++)
 			gtk_layer_set_anchor(GTK_WINDOW(window), i, default_anchors[i]);
-		g_unix_signal_add(SIGUSR1, G_SOURCE_FUNC(toggle_visible), window);
 	}
 
 	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
@@ -76,7 +81,11 @@ static void activate(GtkApplication *app, gpointer user_data) {
 	gtk_box_append(GTK_BOX(box), calendar);
 
 	gtk_window_present(GTK_WINDOW(window));
-	if (!no_layer_shell && start_hidden) gtk_widget_set_visible(window, FALSE);
+	if (!no_layer_shell) {
+		if (start_hidden) gtk_widget_set_visible(window, FALSE);
+		g_unix_signal_add(SIGUSR1, G_SOURCE_FUNC(toggle_visible), window);
+		g_unix_signal_add(SIGUSR1, G_SOURCE_FUNC(show_today), calendar);
+	}
 }
 
 gboolean anchor_option_callback(const gchar *_option_name, const gchar *value, void *_data, GError **error) {
